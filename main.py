@@ -1,11 +1,10 @@
-# cv2 - OpenCV - reconhecimento facial
+# cv2 - OpenCV - processamento de imagens
 import cv2  
+# mediapipte - facemesh - ia para detecção reconhecimento facial
 import mediapipe as mp  
 import time
 import subprocess
 from pathlib import Path
-
-# usando windows entao os
 import os 
 
 def play_video(video_path: Path) -> None:
@@ -59,7 +58,7 @@ def main():
         print("Could not find sad.mp4 :(")
         return
     
-    #
+    # carregando o modelo de IA FaceMesh, detectando 468 pontos de ref do rosto em 3D
     face_mesh_landmarks = mp.solutions.face_mesh.FaceMesh(refine_landmarks=True)
     cam = cv2.VideoCapture(0)
     
@@ -71,33 +70,32 @@ def main():
         if not ret: continue
         
         frame = cv2.flip(frame, 1)
-        height, width, _ = frame.shape
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        height, width, z = frame.shape
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # converte o BGR do OpenCV para RGB
+
+        # faz o reconhecimento e marca os pontos do rosto humano
         processed_image = face_mesh_landmarks.process(rgb_frame)
         face_landmark_points = processed_image.multi_face_landmarks
 
         current = time.time()
 
         if face_landmark_points:
+            # 61, 291: cantos da boca
+            # 0: centro do lábio superior
+
             landmarks = face_landmark_points[0].landmark
-            
             landmark_points = [61, 291, 0]
             for x in landmark_points:
                 ponto = landmarks[x]
                 cx, cy = int(ponto.x * width), int(ponto.y * height)
                 # cv2.circle(imagem, centro, raio, cor(BGR), espessura)
                 cv2.circle(frame, (cx, cy), 5, (0, 255, 0), -1)
-            # PONTOS CHAVE PARA TRISTEZA
-            # 61, 291: Cantos da boca
-            # 0, 17: Centro do lábio superior e inferior
-            # 52, 282: Topo das sobrancelhas
             
             boca_canto_esq = landmarks[61]
             boca_canto_dir = landmarks[291]
             labio_superior = landmarks[0]
             
-            # Cálculo simples: se os cantos da boca estiverem muito abaixo do centro do lábio
-            # calculamos a média da altura dos cantos e comparamos com o lábio superior
+            # se os cantos da boca estiverem abaixo do centro do lábio superior, calculamos a média da altura dos cantos e comparamos com a altura do centro do lábio superior
             boca_media_y = (boca_canto_esq.y + boca_canto_dir.y) / 2
             tristeza_score = boca_media_y - labio_superior.y
 
@@ -119,9 +117,10 @@ def main():
             sadness = None
 
         cv2.imshow('tururuu', frame)
-        if cv2.waitKey(1) == 27: break
 
-    cam.release()
+        if cv2.waitKey(1) == 27: break # pressionar ESC faz sair
+
+    cam.release() # desliga a camera
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
